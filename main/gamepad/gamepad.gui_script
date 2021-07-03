@@ -10,9 +10,6 @@ local rc = require("lua-modules.libs-defold.rendercam.rendercam")
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 
-local gamepad_radius = 80
-local clickzone_width = 400
-local clickzone_height = 400
 
 function init(self)
 	-- initialization of the "GUI extra functions" (by AGulev)
@@ -23,19 +20,11 @@ function init(self)
 	msg.post("@render:", "use_fixed_fit_projection", { near = -1, far = 1 })
 
 	self.active = 0
-	self.active_other_pos = 0
 
 	self.gamepad_back_pos_INIT = gui.get_screen_position(gui.get_node("gamepad_back"))
 	self.gamepad_back_pos = self.gamepad_back_pos_INIT
-	gui.set_position(gui.get_node("gamepad_front"), self.gamepad_back_pos) -- we initialize the front part at the same position at the back part
-	self.gamepad_front_pos = gui.get_screen_position(gui.get_node("gamepad_front"))
 	
 	self.mouse_pos = vmath.vector3()
-	self.vector_dir = vmath.vector3()
-	self.distance = 0 -- of the gamepad_front, from the center of the gamepad_back (only visual)
-	self.distance_anim_speed = 10 -- when the gamepad_front gets back to its initial position
-	self.ratio = 0
-	self.angle = 0
 	
 end
 
@@ -52,16 +41,11 @@ function on_input(self, action_id, action)
 				self.active = 1  -- then gamepad is considered "active"
 				if gui.pick_node(node_gamepad, action.x, action.y) == false then -- more specifically, if made outside the gamepad
 					gui.set_position(gui.get_node("gamepad_back"), self.mouse_pos) -- then the gamepad is visually moved to the mouse position
-					self.active_other_pos = 1 -- and we save this state (because the gamepad_front "back to init position" anim won't be played in this case (cf action.released)
 				end
 			end
 		elseif action.released then
 			self.active = 0 -- gamepad no longer active
 			self.gamepad_back_pos = self.gamepad_back_pos_INIT -- gamepad back to initial position
-			if self.active_other_pos == 1 then -- if the click was NOT made on the gamepad (but still in the clickzone)
-				self.active_other_pos = 0
-				self.distance = 0 -- then the distance is instantly set to 0
-			end
 		end 
 	end
 end
@@ -69,18 +53,7 @@ end
 function update(self, dt)
 
 	
-	if self.active == 0 then
-		self.ratio = 0
-
-		if self.distance > 0 then
-			self.distance = self.distance - self.distance_anim_speed
-		else self.distance = 0
-		end
-		
-		-- JC 02/05/2021 15:52 # We reset the front part position
-		gui.set_position(gui.get_node("gamepad_front"), self.gamepad_back_pos)	
-
-	elseif self.active == 1 then
+	if self.active == 1 then
 		
 		------------------------------------------------------------------
 		-- JC 02/05/2021 15:37 # gamepad stuff
@@ -93,47 +66,13 @@ function update(self, dt)
 
 		local x, y = lume.vector(self.angle, 1)
 		self.vector_dir = vmath.vector3(x, y, 0)
-
-		
-		-------------------------
-		-- distance "ratio" calculation [distance from gamepad center] / [max gamepad radius]
-		-------------------------
-		
-		-- JC 02/05/2021 15:52 # First we calculate the distance between the gamepad and the mouse
-		local distance = lume.distance(self.gamepad_back_pos.x, self.gamepad_back_pos.y, self.mouse_pos.x, self.mouse_pos.y, squared)
-
-		-- JC 02/05/2021 15:52 # Then, if this distance is greater than gamepad_radius, we set it to gamepad_radius
-		-- if lower, we keep the distance as it is
-		if distance >= gamepad_radius then
-			distance = gamepad_radius
-		end
-
-		self.distance = distance
-		
-		-- JC 02/05/2021 15:52 # Finally we calculate the radius (from 0 to 1) that will be used to define how fast the ship will be
-		self.ratio = distance / gamepad_radius
 		
 	end
 
 	gui.set_position(gui.get_node("gamepad_back"), self.gamepad_back_pos)
 
-	-------------------------
-	-- gamepad_front movement (following the mouse/finger movement, until it reaches the "limit" (of the gamepad_radius)
-	-------------------------
 
-	self.gamepad_front_pos = self.gamepad_back_pos + self.vector_dir * self.distance
-	gui.set_position(gui.get_node("gamepad_front"), self.gamepad_front_pos)
-
-	------------------------------------------------------------------
-	-- JC 02/05/2021 15:37 # we send the parameters to the ship script
-	------------------------------------------------------------------
-	local param = {
-		vector_dir = self.vector_dir,
-		speed_ratio = self.ratio
-	}
-	msg.post("/ship#ship", "info sent by gamepad" , param)
-
-	
+		
 	------------------------------------
 	------------------------------------
 	------------ DEBUG STUFF -----------
@@ -141,34 +80,14 @@ function update(self, dt)
 	------------------------------------
 
 	-- JC 02/05/221 15:41 # Displayed values
-	--local x_debug = rc.screen_to_gui(x, y, adjust, isSize)
-	local y_debug = 600
 	debugdraw.text("Active: "..self.active, 10, 600, color)
-	debugdraw.text("Distance: "..self.distance, 10, 585, color)
+	--if self.active == 1 then
+		debugdraw.text("gamepad_back_pos: "..self.gamepad_back_pos, 10, 600, color)
+		debugdraw.text("mouse_pos: "..self.mouse_pos, 10, 585, color)
+	--end
 
-	-- JC 02/05/221 15:41 # Lines
+	-- JC 02/05/221 15:41 # Debug circle
+	local gamepad_radius = 82
 	debugdraw.circle(self.gamepad_back_pos.x, self.gamepad_back_pos.y, gamepad_radius, color, 32) -- circle around gamepad
-	debugdraw.box(clickzone_width/2, clickzone_height/2, clickzone_width+clickzone_width/2, clickzone_height+clickzone_height/2) -- clickzone
-	
-	if self.active == 1 then
-	
-		-- JC 02/05/221 15:41 # Displayed values
-		debugdraw.text("Angle: "..self.angle, 10, 485, color)
-		debugdraw.text("Vector_dir: "..self.vector_dir, 10, 470, color)
-		debugdraw.text("Ratio: "..self.ratio, 10, 440, color)
-
-		debugdraw.text("gamepad_back_pos: "..self.gamepad_back_pos, 10, 300, color)
-		debugdraw.text("gamepad_front_pos: "..self.gamepad_front_pos, 10, 285, color)
-
-		debugdraw.text("mouse_pos: "..self.mouse_pos, 10, 260, color)
-
-		local x1 = self.gamepad_back_pos.x
-		local y1 = self.gamepad_back_pos.y
-		local x2 = x1 + self.vector_dir.x * self.distance
-		local y2 = y1 + self.vector_dir.y * self.distance
-
-		debugdraw.line(x1, y1, x2, y2)
-
-	end
 	
 end
