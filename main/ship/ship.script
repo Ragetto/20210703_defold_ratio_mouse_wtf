@@ -1,0 +1,69 @@
+---========================---
+---== LUA MODULE IMPORTS ==---
+---========================---
+local debugdraw = require("lua-modules.libs-defold.debug-draw.debug-draw")
+local defmath = require("lua-modules.libs-defold.defmath.defmath")
+local lume = require("lua-modules.libs-external.lume.lume")
+local gui_extra = require("lua-modules.libs-defold.gui_extra.gui_extra")
+local rc = require("lua-modules.libs-defold.rendercam.rendercam")
+
+----------------------------------------------------------------
+----------------------------------------------------------------
+
+local speed_max = 3
+
+function init(self)
+	self.vector_dir = vmath.vector3()
+	self.speed_ratio = 0
+	self.speed_current = 0
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+
+	self.speed_current = speed_max * self.speed_ratio
+	
+	local p = go.get_position()
+	local movement = self.vector_dir * self.speed_current
+	go.set_position(p + movement)
+	
+	--debugdraw.text("vector_dir: "..self.vector_dir, 10, 500, color)
+	--debugdraw.text("speed_ratio: "..self.speed_ratio, 10, 485, color)
+
+
+
+
+	-- DEBUG TEST (to check the camera with debug stuff --
+	--debugdraw.text("TEST TOP LEFT 10/630", 10, 630, color)	
+	
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("info sent by gamepad") then
+		self.vector_dir = message.vector_dir
+		self.speed_ratio = message.speed_ratio
+	end
+end
+
+function on_input(self, action_id, action)
+	-- Add input-handling code here. The game object this script is attached to
+	-- must have acquired input focus:
+	--
+	--    msg.post(".", "acquire_input_focus")
+	--
+	-- All mapped input bindings will be received. Mouse and touch input will
+	-- be received regardless of where on the screen it happened.
+	-- Learn more: https://defold.com/manuals/input/
+	-- Remove this function if not needed
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end
